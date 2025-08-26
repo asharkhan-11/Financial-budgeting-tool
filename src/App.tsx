@@ -1,0 +1,165 @@
+import React, { useState } from 'react';
+import { IncomeCalculator } from './components/IncomeCalculator';
+import { BudgetPlanner } from './components/BudgetPlanner';
+import { SavingsCalculator } from './components/SavingsCalculator';
+import { formatCurrencyCompact, formatCurrencyDetailed } from './utils/taxCalculator';
+import { Calculator, PieChart, PiggyBank, Share2 } from 'lucide-react';
+
+function App() {
+  const [activeTab, setActiveTab] = useState('income');
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [age, setAge] = useState(30);
+
+  const handleIncomeCalculated = (income: number, userAge: number) => {
+    setMonthlyIncome(income);
+    setAge(userAge);
+  };
+
+  const tabs = [
+    { id: 'income', label: 'Income Calculator', icon: Calculator },
+    { id: 'budget', label: 'Budget Planner', icon: PieChart },
+    { id: 'savings', label: 'Savings Calculator', icon: PiggyBank }
+  ];
+
+  const shareData = {
+    title: 'Financial Budgeting Tool',
+    text: `My monthly budget: Income: ${formatCurrencyDetailed(monthlyIncome)}, Age: ${age}`,
+    url: window.location.href
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      navigator.clipboard.writeText(shareData.text);
+      alert('Budget details copied to clipboard!');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                <Calculator className="h-5 w-5 text-white" />
+              </div>
+              <h1 className="text-xl font-bold text-gray-900">Financial Budgeting Tool</h1>
+            </div>
+            <button
+              onClick={handleShare}
+              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <Share2 className="h-4 w-4" />
+              <span>Share</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation Tabs */}
+      <nav className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === tab.id
+                      ? 'border-primary-500 text-primary-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Summary Cards */}
+        {monthlyIncome > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Monthly Income</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrencyCompact(monthlyIncome)}</p>
+                  <p className="text-sm text-gray-500">{formatCurrencyDetailed(monthlyIncome)}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Calculator className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Age</p>
+                  <p className="text-2xl font-bold text-gray-900">{age}</p>
+                  <p className="text-sm text-gray-500">years old</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <PieChart className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Annual Income</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrencyCompact(monthlyIncome * 12)}</p>
+                  <p className="text-sm text-gray-500">{formatCurrencyDetailed(monthlyIncome * 12)}</p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <PiggyBank className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Content */}
+        <div className="space-y-8">
+          {activeTab === 'income' && (
+            <IncomeCalculator onIncomeCalculated={handleIncomeCalculated} />
+          )}
+          {activeTab === 'budget' && (
+            <BudgetPlanner monthlyIncome={monthlyIncome} age={age} />
+          )}
+          {activeTab === 'savings' && (
+            <SavingsCalculator monthlyIncome={monthlyIncome} />
+          )}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center text-sm text-gray-500">
+            <p>Tax calculations are based on Indian tax slabs for FY 2025-26 (New Tax Regime)</p>
+            <p className="mt-2">This tool is for educational purposes only. Please consult a financial advisor for professional advice.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default App;

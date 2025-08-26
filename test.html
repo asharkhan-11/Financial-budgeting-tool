@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Numbering Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .result { font-weight: bold; color: #2563eb; }
+        .input-test { margin: 20px 0; }
+        input { padding: 8px; font-size: 16px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Indian Numbering System Test</h1>
+    
+    <div class="input-test">
+        <h3>Input Test:</h3>
+        <label>Enter CTC (should format as you type):</label><br>
+        <input type="text" id="ctcInput" placeholder="Enter CTC amount" oninput="formatInput(this)">
+        <p>Try typing: 1700000 → should show: 17,00,000</p>
+    </div>
+    
+    <div class="test">
+        <h3>Test Results:</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Indian numbering system input formatter
+        function formatInput(input) {
+            const value = input.value;
+            const numericValue = value.replace(/[^0-9]/g, '');
+            if (numericValue === '') {
+                input.value = '';
+                return;
+            }
+            
+            const num = parseInt(numericValue);
+            if (num === 0) {
+                input.value = '0';
+                return;
+            }
+            
+            const numStr = num.toString();
+            const len = numStr.length;
+            
+            if (len <= 3) {
+                input.value = numStr;
+            } else {
+                // Handle the last 3 digits
+                let formatted = numStr.slice(-3);
+                
+                // Handle the remaining digits in groups of 2
+                for (let i = len - 3; i > 0; i -= 2) {
+                    const start = Math.max(0, i - 2);
+                    const group = numStr.slice(start, i);
+                    formatted = group + ',' + formatted;
+                }
+                
+                input.value = formatted;
+            }
+        }
+
+        // Indian numbering system formatter
+        function formatIndianNumber(num) {
+            const roundedNum = Math.round(num);
+            if (roundedNum === 0) return '0';
+            
+            const numStr = Math.abs(roundedNum).toString();
+            const [wholePart, decimalPart] = numStr.split('.');
+            
+            // Indian numbering system: last 3 digits, then groups of 2
+            let formatted = '';
+            const len = wholePart.length;
+            
+            if (len <= 3) {
+                formatted = wholePart;
+            } else {
+                // Handle the last 3 digits
+                formatted = wholePart.slice(-3);
+                
+                // Handle the remaining digits in groups of 2
+                for (let i = len - 3; i > 0; i -= 2) {
+                    const start = Math.max(0, i - 2);
+                    const group = wholePart.slice(start, i);
+                    formatted = group + ',' + formatted;
+                }
+            }
+            
+            return formatted;
+        }
+
+        function formatCurrencyDetailed(amount) {
+            if (amount === 0) return '₹0';
+            
+            const formatted = formatIndianNumber(amount);
+            return `₹${formatted}`;
+        }
+
+        function formatCurrencyCompact(amount) {
+            const roundedAmount = Math.round(amount);
+            if (roundedAmount === 0) return '₹0';
+            
+            if (roundedAmount >= 10000000) { // 1 crore
+                return `₹${Math.round(roundedAmount / 10000000)}Cr`;
+            } else if (roundedAmount >= 100000) { // 1 lakh
+                return `₹${Math.round(roundedAmount / 100000)}L`;
+            } else if (roundedAmount >= 1000) { // 1 thousand
+                return `₹${Math.round(roundedAmount / 1000)}K`;
+            } else {
+                return `₹${roundedAmount}`;
+            }
+        }
+
+        // Test cases
+        const testCases = [
+            { input: 500000, expected: '₹5,00,000' },
+            { input: 1000000, expected: '₹10,00,000' },
+            { input: 50000, expected: '₹50,000' },
+            { input: 10000000, expected: '₹1,00,00,000' },
+            { input: 1700000, expected: '₹17,00,000' }
+        ];
+
+        const resultsDiv = document.getElementById('results');
+        
+        testCases.forEach(test => {
+            const result = formatCurrencyDetailed(test.input);
+            const status = result === test.expected ? '✅ PASS' : '❌ FAIL';
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <span class="result">${status}</span> - 
+                Input: ${test.input.toLocaleString()} → 
+                Output: ${result} 
+                (Expected: ${test.expected})
+            `;
+            resultsDiv.appendChild(div);
+        });
+
+        // Show current time to verify page is fresh
+        const timeDiv = document.createElement('div');
+        timeDiv.innerHTML = `<br><strong>Page loaded at:</strong> ${new Date().toLocaleString()}`;
+        resultsDiv.appendChild(timeDiv);
+    </script>
+</body>
+</html>
