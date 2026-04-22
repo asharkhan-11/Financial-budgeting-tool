@@ -4,110 +4,32 @@ import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { calculateTax, formatCurrencyCompact, formatCurrencyDetailed } from '../utils/taxCalculator';
 import { Calculator, TrendingUp, FileText, PieChart } from 'lucide-react';
+import { calculateSalaryBreakdown, formatIndianCurrencyInput } from '../utils/incomeCalculator';
 
 interface IncomeCalculatorProps {
-  onIncomeCalculated?: (income: number, age: number) => void;
+  onIncomeCalculated?: (monthlyInHand: number, age: number, annualCtc: number) => void;
 }
 
 export function IncomeCalculator({ onIncomeCalculated }: IncomeCalculatorProps) {
   const [ctc, setCtc] = useState<string>('');
   const [age, setAge] = useState<string>('30');
+  const [pfMode, setPfMode] = useState<'standard' | 'minimum'>('standard');
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  const handleCtcChange = (value: string) => {
-    setCtc(value);
-  };
-
-  const formatInput = (value: string) => {
-    // Remove all non-digit characters except decimal point
-    const cleanValue = value.replace(/[^\d.]/g, '');
-    
-    // Handle decimal point
-    const parts = cleanValue.split('.');
-    if (parts.length > 2) return value; // Don't allow multiple decimal points
-    
-    let wholePart = parts[0];
-    const decimalPart = parts[1] || '';
-    
-    // Remove leading zeros
-    wholePart = wholePart.replace(/^0+/, '') || '0';
-    
-    // Apply Indian numbering system
-    if (wholePart.length > 3) {
-      const lastThree = wholePart.slice(-3);
-      const remaining = wholePart.slice(0, -3);
-      let formatted = '';
-      
-      for (let i = remaining.length; i > 0; i -= 2) {
-        const start = Math.max(0, i - 2);
-        const group = remaining.slice(start, i);
-        formatted = group + ',' + formatted;
-      }
-      
-      wholePart = formatted + lastThree;
-    }
-    
-    // Combine with decimal part
-    let result = wholePart;
-    if (decimalPart) {
-      result += '.' + decimalPart.slice(0, 2); // Limit to 2 decimal places
-    }
-    
-    return result;
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formattedValue = formatInput(e.target.value);
-    handleCtcChange(formattedValue);
+    setCtc(formatIndianCurrencyInput(e.target.value));
   };
 
   const ctcNumber = parseFloat(ctc.replace(/,/g, '')) || 0;
   const ageNumber = parseInt(age) || 30;
-  const taxCalculation = calculateTax(ctcNumber);
+  const taxCalculation = calculateTax(ctcNumber, { pfMode });
 
   // Notify parent component when income is calculated
   useEffect(() => {
     if (ctcNumber > 0 && onIncomeCalculated) {
-      onIncomeCalculated(taxCalculation.monthlyTakeHome, ageNumber);
+      onIncomeCalculated(taxCalculation.monthlyTakeHome, ageNumber, ctcNumber);
     }
   }, [ctcNumber, ageNumber, taxCalculation.monthlyTakeHome, onIncomeCalculated]);
-
-  // Calculate salary components
-  const calculateSalaryBreakdown = (annualCtc: number) => {
-    // Standard salary structure (can be customized)
-    const basicSalary = annualCtc * 0.5; // 50% of CTC as basic
-    const hra = basicSalary * 0.4; // 40% of basic as HRA
-    const da = basicSalary * 0.1; // 10% of basic as DA
-    const specialAllowance = annualCtc * 0.15; // 15% as special allowance
-    const otherAllowances = annualCtc * 0.05; // 5% as other allowances
-    
-    // PF calculations
-    const employeePf = Math.min(basicSalary * 0.12, 180000); // 12% of basic, max ₹1.5L
-    const employerPf = Math.min(basicSalary * 0.12, 180000); // 12% of basic, max ₹1.5L
-    const employerEps = Math.min(basicSalary * 0.0833, 125000); // 8.33% of basic, max ₹1.25L
-    const employerPfContribution = employerPf - employerEps; // Remaining PF contribution
-    
-    // Gratuity (4.81% of basic)
-    const gratuity = basicSalary * 0.0481;
-    
-    // Total cost to company
-    const totalCtc = basicSalary + hra + da + specialAllowance + otherAllowances + 
-                    employerPf + gratuity;
-    
-    return {
-      basicSalary,
-      hra,
-      da,
-      specialAllowance,
-      otherAllowances,
-      employeePf,
-      employerPf,
-      employerEps,
-      employerPfContribution,
-      gratuity,
-      totalCtc
-    };
-  };
 
   const salaryBreakdown = calculateSalaryBreakdown(ctcNumber);
 
@@ -151,6 +73,40 @@ export function IncomeCalculator({ onIncomeCalculated }: IncomeCalculatorProps) 
                   min="18"
                   max="100"
                 />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                PF Deduction Type
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label className="flex items-start gap-2 border border-gray-300 rounded-lg p-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="pfMode"
+                    value="standard"
+                    checked={pfMode === 'standard'}
+                    onChange={() => setPfMode('standard')}
+                    className="mt-1"
+                  />
+                  <span className="text-sm text-gray-700">
+                    12% of basic salary (basic = 50% of CTC), multiplied by 2 (employee + employer)
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 border border-gray-300 rounded-lg p-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="pfMode"
+                    value="minimum"
+                    checked={pfMode === 'minimum'}
+                    onChange={() => setPfMode('minimum')}
+                    className="mt-1"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Minimum PF: ₹1800 x 2 per month (employee + employer)
+                  </span>
+                </label>
               </div>
             </div>
           </div>
@@ -212,7 +168,7 @@ export function IncomeCalculator({ onIncomeCalculated }: IncomeCalculatorProps) 
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Standard Deduction:</span>
-                        <span className="font-medium">-{formatCurrencyDetailed(50000)}</span>
+                        <span className="font-medium">-{formatCurrencyDetailed(75000)}</span>
                       </div>
                       <div className="flex justify-between border-t pt-2">
                         <span className="text-gray-900 font-medium">Taxable Income:</span>
@@ -224,16 +180,26 @@ export function IncomeCalculator({ onIncomeCalculated }: IncomeCalculatorProps) 
                   <div>
                     <h4 className="font-medium text-gray-900 mb-2">Tax Calculation</h4>
                     <div className="space-y-2 text-sm">
-                      {taxCalculation.slabs.map((slab, index) => (
+                      {taxCalculation.slabs.map((slabItem, index) => (
                         <div key={index} className="flex justify-between">
                           <span className="text-gray-600">
-                            {formatCurrencyDetailed(slab.from)} - {formatCurrencyDetailed(slab.to)} ({slab.rate}%):
+                            {slabItem.slab.maxIncome === Infinity
+                              ? `Above ${formatCurrencyDetailed(slabItem.slab.minIncome)} (${slabItem.slab.rate}%):`
+                              : `${formatCurrencyDetailed(slabItem.slab.minIncome)} - ${formatCurrencyDetailed(slabItem.slab.maxIncome)} (${slabItem.slab.rate}%):`}
                           </span>
-                          <span className="font-medium">{formatCurrencyDetailed(slab.tax)}</span>
+                          <span className="font-medium">{formatCurrencyDetailed(slabItem.tax)}</span>
                         </div>
                       ))}
                       <div className="flex justify-between border-t pt-2">
-                        <span className="text-gray-900 font-medium">Total Tax:</span>
+                        <span className="text-gray-900 font-medium">Tax Before Cess:</span>
+                        <span className="font-bold text-red-600">{formatCurrencyDetailed(taxCalculation.taxBeforeCess)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Health & Education Cess (4%):</span>
+                        <span className="font-medium">{formatCurrencyDetailed(taxCalculation.cess)}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="text-gray-900 font-medium">Total Tax (incl. cess):</span>
                         <span className="font-bold text-red-600">{formatCurrencyDetailed(taxCalculation.totalTax)}</span>
                       </div>
                     </div>
@@ -290,26 +256,28 @@ export function IncomeCalculator({ onIncomeCalculated }: IncomeCalculatorProps) 
                   <h4 className="font-semibold text-gray-900 mb-4 text-center">Deductions</h4>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-700">Employee PF (12%)</span>
-                      <span className="font-medium text-red-600">-{formatCurrencyDetailed(salaryBreakdown.employeePf)}</span>
+                      <span className="text-gray-700">
+                        PF Deduction ({pfMode === 'minimum' ? 'Minimum PF' : '12% of Basic x 2'})
+                      </span>
+                      <span className="font-medium text-red-600">-{formatCurrencyDetailed(taxCalculation.annualPfDeduction)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-700">Professional Tax</span>
-                      <span className="font-medium text-red-600">-{formatCurrencyDetailed(2400)}</span>
+                      <span className="font-medium text-red-600">-{formatCurrencyDetailed(taxCalculation.annualProfessionalTax)}</span>
                     </div>
                     <div className="border-t pt-3">
                       <div className="flex justify-between items-center font-semibold">
                         <span className="text-gray-900">Total Deductions</span>
-                        <span className="text-red-600">-{formatCurrencyDetailed(salaryBreakdown.employeePf + 2400)}</span>
+                        <span className="text-red-600">-{formatCurrencyDetailed(taxCalculation.annualPfDeduction + taxCalculation.annualProfessionalTax)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Employer Contributions */}
+              {/* Employer-side Components */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-900 mb-4 text-center">Employer Contributions (Not in your salary)</h4>
+                <h4 className="font-semibold text-blue-900 mb-4 text-center">Employer-side Components</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center">
                     <div className="text-sm text-blue-700 mb-1">Employer PF</div>
@@ -340,11 +308,11 @@ export function IncomeCalculator({ onIncomeCalculated }: IncomeCalculatorProps) 
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-700">Less: Deductions:</span>
-                      <span className="font-medium text-red-600">-{formatCurrencyDetailed(salaryBreakdown.employeePf + 2400)}</span>
+                      <span className="font-medium text-red-600">-{formatCurrencyDetailed(taxCalculation.annualPfDeduction + taxCalculation.annualProfessionalTax)}</span>
                     </div>
                     <div className="flex justify-between border-t pt-2 font-semibold">
                       <span className="text-gray-900">Net Salary:</span>
-                      <span className="text-green-600">{formatCurrencyDetailed((salaryBreakdown.basicSalary + salaryBreakdown.hra + salaryBreakdown.da + salaryBreakdown.specialAllowance + salaryBreakdown.otherAllowances) - (salaryBreakdown.employeePf + 2400))}</span>
+                      <span className="text-green-600">{formatCurrencyDetailed((salaryBreakdown.basicSalary + salaryBreakdown.hra + salaryBreakdown.da + salaryBreakdown.specialAllowance + salaryBreakdown.otherAllowances) - (taxCalculation.annualPfDeduction + taxCalculation.annualProfessionalTax))}</span>
                     </div>
                   </div>
                   <div className="space-y-2">

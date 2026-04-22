@@ -1,62 +1,53 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { calculateBudgetPlan, calculateAdvancedBudgetPlan, analyzeBudget, BudgetPlan, BudgetRecommendation } from '../utils/budgetCalculator';
-import { formatCurrency, formatCurrencyDetailed } from '../utils/taxCalculator';
+import { calculateBudgetPlan, calculateAdvancedBudgetPlan, analyzeBudget, BudgetPlan } from '../utils/budgetCalculator';
+import { formatCurrencyDetailed } from '../utils/taxCalculator';
 import { PieChart as PieChartIcon, TrendingUp, AlertTriangle, CheckCircle, Edit3, Save } from 'lucide-react';
+import {
+  useBudgetCustomization,
+  DEFAULT_PERCENTAGES,
+  type BudgetCategoryKey
+} from '../hooks/useBudgetCustomization';
 
 interface BudgetPlannerProps {
   monthlyIncome: number;
   age?: number;
 }
 
-interface SavedBudget {
-  percentages: { [key: string]: number };
-  timestamp: number;
-}
-
 export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
   const [useAdvancedPlan, setUseAdvancedPlan] = useState(false);
-  const [currentAllocations, setCurrentAllocations] = useState<{ [key: string]: number }>({});
   const [showRecommendations, setShowRecommendations] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [customPercentages, setCustomPercentages] = useState<{ [key: string]: number }>({});
-  const [inputValues, setInputValues] = useState<{ [key: string]: string }>({});
+  const {
+    isEditing,
+    setIsEditing,
+    customPercentages,
+    totalCustomPercentage,
+    resetCustomizationState,
+    handlePercentageChange,
+    getDisplayValue,
+    saveCustomBudget,
+    resetToDefault
+  } = useBudgetCustomization();
 
-  // Load saved budget on component mount
-  useEffect(() => {
-    const savedBudget = localStorage.getItem('savedBudget');
-    if (savedBudget) {
-      try {
-        const parsed: SavedBudget = JSON.parse(savedBudget);
-        setCustomPercentages(parsed.percentages);
-        // Initialize input values for display
-        const inputVals: { [key: string]: string } = {};
-        Object.entries(parsed.percentages).forEach(([key, value]) => {
-          inputVals[key] = value.toString();
-        });
-        setInputValues(inputVals);
-      } catch (error) {
-        console.error('Error loading saved budget:', error);
-      }
-    }
-  }, []);
-
-  const budgetPlan = useAdvancedPlan 
-    ? calculateAdvancedBudgetPlan(monthlyIncome, age)
-    : calculateBudgetPlan(monthlyIncome);
+  const standardPlan = calculateBudgetPlan(monthlyIncome);
+  const advancedPlan = calculateAdvancedBudgetPlan(monthlyIncome, age);
+  const budgetPlan = useAdvancedPlan ? advancedPlan : standardPlan;
 
   // Calculate custom budget based on editable percentages
   const getCustomBudgetPlan = (): BudgetPlan => {
-    const needs = (customPercentages.Needs || 50) * monthlyIncome / 100;
-    const wants = (customPercentages.Wants || 30) * monthlyIncome / 100;
-    const savings = (customPercentages.Savings || 20) * monthlyIncome / 100;
+    const needsPercentage = customPercentages.Needs || DEFAULT_PERCENTAGES.Needs;
+    const wantsPercentage = customPercentages.Wants || DEFAULT_PERCENTAGES.Wants;
+    const savingsPercentage = customPercentages.Savings || DEFAULT_PERCENTAGES.Savings;
+    const needs = needsPercentage * monthlyIncome / 100;
+    const wants = wantsPercentage * monthlyIncome / 100;
+    const savings = savingsPercentage * monthlyIncome / 100;
 
     const categories = [
       {
-        name: `Needs (${customPercentages.Needs || 50}%)`,
-        percentage: customPercentages.Needs || 50,
+        name: `Needs (${needsPercentage}%)`,
+        percentage: needsPercentage,
         amount: needs,
         color: "#ef4444",
         description: "Essential expenses like rent, utilities, groceries, insurance",
@@ -71,8 +62,8 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
         ]
       },
       {
-        name: `Wants (${customPercentages.Wants || 30}%)`,
-        percentage: customPercentages.Wants || 30,
+        name: `Wants (${wantsPercentage}%)`,
+        percentage: wantsPercentage,
         amount: wants,
         color: "#f59e0b",
         description: "Non-essential expenses for lifestyle and entertainment",
@@ -86,8 +77,8 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
         ]
       },
       {
-        name: `Savings & Investments (${customPercentages.Savings || 20}%)`,
-        percentage: customPercentages.Savings || 20,
+        name: `Savings & Investments (${savingsPercentage}%)`,
+        percentage: savingsPercentage,
         amount: savings,
         color: "#22c55e",
         description: "Emergency fund, investments, and financial goals",
@@ -117,57 +108,19 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
     color: category.color
   }));
 
-  const recommendations = analyzeBudget(currentAllocations, monthlyIncome);
-
-  const handleAllocationChange = (category: string, amount: number) => {
-    setCurrentAllocations(prev => ({
-      ...prev,
-      [category]: amount
-    }));
-  };
-
-  const handlePercentageChange = (category: string, value: string) => {
-    // Update input value for display
-    setInputValues(prev => ({
-      ...prev,
-      [category]: value
-    }));
-
-    // Only update percentage if it's a valid number
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
-      setCustomPercentages(prev => ({
-        ...prev,
-        [category]: numValue
-      }));
-    } else if (value === '' || value === '.') {
-      // Allow empty or decimal point for better UX
-      setCustomPercentages(prev => ({
-        ...prev,
-        [category]: 0
-      }));
-    }
-  };
-
-  const handleSaveCustomBudget = () => {
-    // Save to localStorage
-    const savedBudget: SavedBudget = {
-      percentages: customPercentages,
-      timestamp: Date.now()
-    };
-    localStorage.setItem('savedBudget', JSON.stringify(savedBudget));
-    
-    setIsEditing(false);
-    // Show success message (you could add a toast notification here)
-    alert('Budget saved successfully!');
-  };
-
-  const handleResetToDefault = () => {
-    setCustomPercentages({});
-    setInputValues({});
-    localStorage.removeItem('savedBudget');
-    setIsEditing(false);
-  };
+  const recommendations = analyzeBudget(
+    activeBudgetPlan.categories.reduce<{ [key: string]: number }>((acc, category) => {
+      const key = category.name.startsWith('Needs')
+        ? 'Needs'
+        : category.name.startsWith('Wants')
+          ? 'Wants'
+          : 'Savings';
+      acc[key] = category.amount;
+      return acc;
+    }, {}),
+    monthlyIncome
+  );
+  const actionableRecommendations = recommendations.filter((rec) => rec.status !== 'good');
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -182,16 +135,45 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
     }
   };
 
-  const totalCustomPercentage = Object.values(customPercentages).reduce((sum, p) => sum + p, 0);
+  const getPlanPercentages = (plan: BudgetPlan) => {
+    const getPercentage = (prefix: string) =>
+      plan.categories.find((category) => category.name.startsWith(prefix))?.percentage ?? 0;
 
-  // Get display value for input (show empty string if 0 and not in inputValues)
-  const getDisplayValue = (category: string) => {
-    if (inputValues[category] !== undefined) {
-      return inputValues[category];
-    }
-    const defaultValue = category === 'Needs' ? 50 : category === 'Wants' ? 30 : 20;
-    return customPercentages[category] || defaultValue;
+    return {
+      needs: getPercentage('Needs'),
+      wants: getPercentage('Wants'),
+      savings: getPercentage('Savings')
+    };
   };
+
+  const standardPercentages = getPlanPercentages(standardPlan);
+  const advancedPercentages = getPlanPercentages(advancedPlan);
+  const advancedDelta = {
+    needs: advancedPercentages.needs - standardPercentages.needs,
+    wants: advancedPercentages.wants - standardPercentages.wants,
+    savings: advancedPercentages.savings - standardPercentages.savings
+  };
+  const isAdvancedDifferent =
+    Math.abs(advancedDelta.needs) > 0.01 ||
+    Math.abs(advancedDelta.wants) > 0.01 ||
+    Math.abs(advancedDelta.savings) > 0.01;
+
+  const advancedDrivers: string[] = [];
+  if (monthlyIncome > 200000) {
+    advancedDrivers.push('high income profile (> ₹2,00,000/month)');
+  } else if (monthlyIncome < 50000) {
+    advancedDrivers.push('lower income profile (< ₹50,000/month)');
+  } else {
+    advancedDrivers.push('mid income profile (₹50,000 - ₹2,00,000/month), so base split stays 50/30/20');
+  }
+
+  if (age < 25) {
+    advancedDrivers.push('age below 25, so savings increase by 5% and wants reduce by 5%');
+  } else if (age > 50) {
+    advancedDrivers.push('age above 50, so savings increase by 10% and wants reduce by 10%');
+  } else {
+    advancedDrivers.push('age between 25 and 50, so no age-based adjustment');
+  }
 
   return (
     <div className="space-y-6">
@@ -208,21 +190,17 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
                 size="sm"
                 onClick={() => {
                   setUseAdvancedPlan(false);
-                  setIsEditing(false);
-                  setCustomPercentages({});
-                  setInputValues({});
+                  resetCustomizationState();
                 }}
               >
-                Standard (50/30/20)
+                Standard
               </Button>
               <Button
                 variant={useAdvancedPlan ? 'primary' : 'secondary'}
                 size="sm"
                 onClick={() => {
                   setUseAdvancedPlan(true);
-                  setIsEditing(false);
-                  setCustomPercentages({});
-                  setInputValues({});
+                  resetCustomizationState();
                 }}
               >
                 Advanced
@@ -237,12 +215,50 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
               </Button>
             </div>
           </div>
+          <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+            {useAdvancedPlan ? (
+              <span>
+                Advanced is active: dynamic split based on income and age. Current split is
+                {' '}
+                <span className="font-medium">
+                  Needs {advancedPercentages.needs}% / Wants {advancedPercentages.wants}% / Savings {advancedPercentages.savings}%
+                </span>
+                .
+              </span>
+            ) : (
+              <span>
+                Standard is active: fixed
+                {' '}
+                <span className="font-medium">
+                  Needs {standardPercentages.needs}% / Wants {standardPercentages.wants}% / Savings {standardPercentages.savings}%
+                </span>
+                {' '}
+                rule.
+              </span>
+            )}
+            <div className="text-xs text-gray-500">
+              {isAdvancedDifferent ? (
+                <span>
+                  Advanced vs Standard delta: Needs {advancedDelta.needs > 0 ? '+' : ''}{advancedDelta.needs}%,
+                  Wants {advancedDelta.wants > 0 ? '+' : ''}{advancedDelta.wants}%,
+                  Savings {advancedDelta.savings > 0 ? '+' : ''}{advancedDelta.savings}%.
+                </span>
+              ) : (
+                <span>
+                  Advanced currently gives the same split as Standard for your profile.
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500">
+              Why: {advancedDrivers.join(' + ')}.
+            </div>
+          </div>
 
           {isEditing && (
             <div className="bg-blue-50 p-4 rounded-lg">
               <h5 className="font-medium text-blue-900 mb-3">Custom Budget Allocation</h5>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {['Needs', 'Wants', 'Savings'].map((category) => (
+                {(Object.keys(DEFAULT_PERCENTAGES) as BudgetCategoryKey[]).map((category) => (
                   <div key={category} className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">
                       {category} Percentage
@@ -261,7 +277,7 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
                       <span className="text-sm text-gray-500">%</span>
                     </div>
                     <div className="text-sm text-gray-600">
-                      {formatCurrencyDetailed(((customPercentages[category] || (category === 'Needs' ? 50 : category === 'Wants' ? 30 : 20)) * monthlyIncome) / 100)}
+                      {formatCurrencyDetailed(((customPercentages[category] || DEFAULT_PERCENTAGES[category]) * monthlyIncome) / 100)}
                     </div>
                   </div>
                 ))}
@@ -278,10 +294,10 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
                   )}
                 </div>
                 <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={handleResetToDefault}>
+                  <Button variant="outline" size="sm" onClick={resetToDefault}>
                     Reset
                   </Button>
-                  <Button size="sm" onClick={handleSaveCustomBudget}>
+                  <Button size="sm" onClick={saveCustomBudget}>
                     Save Budget
                   </Button>
                 </div>
@@ -359,10 +375,10 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
             </div>
           </div>
 
-          {/* Custom Allocation Section */}
+          {/* Budget Recommendations */}
           <div className="border-t pt-6">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-gray-900">Custom Allocation</h4>
+              <h4 className="font-semibold text-gray-900">Budget Recommendations</h4>
               <Button
                 variant="outline"
                 size="sm"
@@ -372,45 +388,35 @@ export function BudgetPlanner({ monthlyIncome, age = 30 }: BudgetPlannerProps) {
                 {showRecommendations ? 'Hide' : 'Show'} Recommendations
               </Button>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {activeBudgetPlan.categories.map((category, index) => (
-                <div key={index} className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
-                    {category.name.split(' ')[0]} Allocation
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="Enter amount"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    onChange={(e) => handleAllocationChange(category.name.split(' ')[0], parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-              ))}
-            </div>
 
-            {showRecommendations && recommendations.length > 0 && (
+            {showRecommendations && (
               <div className="mt-6 space-y-3">
-                <h5 className="font-medium text-gray-900">Budget Recommendations</h5>
-                {recommendations.map((rec, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {getStatusIcon(rec.status)}
-                      <div>
-                        <div className="font-medium text-gray-900">{rec.category}</div>
-                        <div className="text-sm text-gray-600">{rec.message}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatCurrencyDetailed(rec.currentAmount)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Recommended: {formatCurrencyDetailed(rec.recommendedAmount)}
-                      </div>
-                    </div>
+                <h5 className="font-medium text-gray-900">Actionable Recommendations</h5>
+                {actionableRecommendations.length === 0 ? (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                    Your current allocation is within recommended ranges. No changes needed.
                   </div>
-                ))}
+                ) : (
+                  actionableRecommendations.map((rec, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        {getStatusIcon(rec.status)}
+                        <div>
+                          <div className="font-medium text-gray-900">{rec.category}</div>
+                          <div className="text-sm text-gray-600">{rec.message}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-gray-900">
+                          Current: {formatCurrencyDetailed(rec.currentAmount)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Recommended: {formatCurrencyDetailed(rec.recommendedAmount)}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>

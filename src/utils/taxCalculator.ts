@@ -8,9 +8,15 @@ export interface TaxSlab {
 export interface TaxCalculation {
   totalIncome: number;
   taxableIncome: number;
-  taxAmount: number;
+  taxBeforeCess: number;
+  cess: number;
+  totalTax: number;
+  taxAmount?: number;
   effectiveTaxRate: number;
   monthlyTax: number;
+  annualPfDeduction: number;
+  annualProfessionalTax: number;
+  annualDeductions: number;
   monthlyTakeHome: number;
   slabs: {
     slab: TaxSlab;
@@ -19,21 +25,33 @@ export interface TaxCalculation {
   }[];
 }
 
-// Indian Tax Slabs for FY 2025-26 (New Tax Regime)
+export type PfMode = 'standard' | 'minimum';
+
+export interface TaxCalculationOptions {
+  pfMode?: PfMode;
+}
+
+const STANDARD_DEDUCTION = 75000;
+const PROFESSIONAL_TAX = 2500;
+const MINIMUM_PF_MONTHLY = 1800;
+const CESS_RATE = 0.04;
+
+// Indian Tax Slabs for FY 2025-26 (New Tax Regime, Budget 2025)
 export const TAX_SLABS: TaxSlab[] = [
-  { minIncome: 0, maxIncome: 300000, rate: 0, description: "Up to ₹3 Lakhs" },
-  { minIncome: 300000, maxIncome: 600000, rate: 5, description: "₹3 Lakhs to ₹6 Lakhs" },
-  { minIncome: 600000, maxIncome: 900000, rate: 10, description: "₹6 Lakhs to ₹9 Lakhs" },
-  { minIncome: 900000, maxIncome: 1200000, rate: 15, description: "₹9 Lakhs to ₹12 Lakhs" },
-  { minIncome: 1200000, maxIncome: 1500000, rate: 20, description: "₹12 Lakhs to ₹15 Lakhs" },
-  { minIncome: 1500000, maxIncome: Infinity, rate: 30, description: "Above ₹15 Lakhs" }
+  { minIncome: 0, maxIncome: 400000, rate: 0, description: "Up to ₹4 Lakhs" },
+  { minIncome: 400000, maxIncome: 800000, rate: 5, description: "₹4 Lakhs to ₹8 Lakhs" },
+  { minIncome: 800000, maxIncome: 1200000, rate: 10, description: "₹8 Lakhs to ₹12 Lakhs" },
+  { minIncome: 1200000, maxIncome: 1600000, rate: 15, description: "₹12 Lakhs to ₹16 Lakhs" },
+  { minIncome: 1600000, maxIncome: 2000000, rate: 20, description: "₹16 Lakhs to ₹20 Lakhs" },
+  { minIncome: 2000000, maxIncome: 2400000, rate: 25, description: "₹20 Lakhs to ₹24 Lakhs" },
+  { minIncome: 2400000, maxIncome: Infinity, rate: 30, description: "Above ₹24 Lakhs" }
 ];
 
-export function calculateTax(annualIncome: number): TaxCalculation {
-  const standardDeduction = 50000; // Standard deduction
-  const taxableIncome = Math.max(0, annualIncome - standardDeduction);
+export function calculateTax(annualIncome: number, options: TaxCalculationOptions = {}): TaxCalculation {
+  const pfMode = options.pfMode ?? 'standard';
+  const taxableIncome = Math.max(0, annualIncome - STANDARD_DEDUCTION);
   
-  let totalTax = 0;
+  let taxBeforeCess = 0;
   const slabBreakdown: { slab: TaxSlab; amount: number; tax: number }[] = [];
   
   for (const slab of TAX_SLABS) {
@@ -44,7 +62,7 @@ export function calculateTax(annualIncome: number): TaxCalculation {
       );
       
       const slabTax = (slabAmount * slab.rate) / 100;
-      totalTax += slabTax;
+      taxBeforeCess += slabTax;
       
       if (slabAmount > 0) {
         slabBreakdown.push({
@@ -55,17 +73,33 @@ export function calculateTax(annualIncome: number): TaxCalculation {
       }
     }
   }
+
+  const cess = taxBeforeCess * CESS_RATE;
+  const totalTax = taxBeforeCess + cess;
+  const basicSalary = annualIncome * 0.5;
+  const annualPfDeduction =
+    pfMode === 'minimum'
+      ? MINIMUM_PF_MONTHLY * 2 * 12
+      : basicSalary * 0.12 * 2;
+  const annualProfessionalTax = PROFESSIONAL_TAX;
+  const annualDeductions = totalTax + annualPfDeduction + annualProfessionalTax;
   
   const effectiveTaxRate = annualIncome > 0 ? (totalTax / annualIncome) * 100 : 0;
   const monthlyTax = totalTax / 12;
-  const monthlyTakeHome = (annualIncome - totalTax) / 12;
+  const monthlyTakeHome = Math.max(0, (annualIncome - annualDeductions) / 12);
   
   return {
     totalIncome: annualIncome,
     taxableIncome,
+    taxBeforeCess,
+    cess,
+    totalTax,
     taxAmount: totalTax,
     effectiveTaxRate,
     monthlyTax,
+    annualPfDeduction,
+    annualProfessionalTax,
+    annualDeductions,
     monthlyTakeHome,
     slabs: slabBreakdown
   };
@@ -108,10 +142,7 @@ function formatIndianNumber(num: number): string {
 
 // Indian numbering system formatter with currency symbol
 export function formatCurrency(amount: number): string {
-  if (amount === 0) return '₹0';
-  
-  const formatted = formatIndianNumber(amount);
-  return `₹${formatted}`;
+  return formatCurrencyDetailed(amount);
 }
 
 // Detailed Indian numbering system formatter (shows full amount)

@@ -1,31 +1,48 @@
-import React, { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { IncomeCalculator } from './components/IncomeCalculator';
 import { BudgetPlanner } from './components/BudgetPlanner';
 import { SavingsCalculator } from './components/SavingsCalculator';
 import { formatCurrencyCompact, formatCurrencyDetailed } from './utils/taxCalculator';
 import { Calculator, PieChart, PiggyBank, Share2 } from 'lucide-react';
 
+type AppTab = 'income' | 'budget' | 'savings';
+
+interface IncomeSummary {
+  monthlyInHand: number;
+  annualCtc: number;
+  age: number;
+}
+
+const tabs: Array<{ id: AppTab; label: string; icon: typeof Calculator }> = [
+  { id: 'income', label: 'Income Calculator', icon: Calculator },
+  { id: 'budget', label: 'Budget Planner', icon: PieChart },
+  { id: 'savings', label: 'Savings Calculator', icon: PiggyBank }
+];
+
 function App() {
-  const [activeTab, setActiveTab] = useState('income');
-  const [monthlyIncome, setMonthlyIncome] = useState(0);
-  const [age, setAge] = useState(30);
+  const [activeTab, setActiveTab] = useState<AppTab>('income');
+  const [summary, setSummary] = useState<IncomeSummary>({
+    monthlyInHand: 0,
+    annualCtc: 0,
+    age: 30
+  });
 
-  const handleIncomeCalculated = (income: number, userAge: number) => {
-    setMonthlyIncome(income);
-    setAge(userAge);
+  const handleIncomeCalculated = (income: number, userAge: number, ctc: number) => {
+    setSummary({
+      monthlyInHand: income,
+      annualCtc: ctc,
+      age: userAge
+    });
   };
 
-  const tabs = [
-    { id: 'income', label: 'Income Calculator', icon: Calculator },
-    { id: 'budget', label: 'Budget Planner', icon: PieChart },
-    { id: 'savings', label: 'Savings Calculator', icon: PiggyBank }
-  ];
-
-  const shareData = {
-    title: 'Financial Budgeting Tool',
-    text: `My monthly budget: Income: ${formatCurrencyDetailed(monthlyIncome)}, Age: ${age}`,
-    url: window.location.href
-  };
+  const shareData = useMemo(
+    () => ({
+      title: 'Financial Budgeting Tool',
+      text: `My monthly budget: In-hand income: ${formatCurrencyDetailed(summary.monthlyInHand)}, Age: ${summary.age}`,
+      url: window.location.href
+    }),
+    [summary.monthlyInHand, summary.age]
+  );
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -92,14 +109,14 @@ function App() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
-        {monthlyIncome > 0 && (
+        {summary.monthlyInHand > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Monthly Income</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrencyCompact(monthlyIncome)}</p>
-                  <p className="text-sm text-gray-500">{formatCurrencyDetailed(monthlyIncome)}</p>
+                  <p className="text-sm font-medium text-gray-600">Monthly In-hand</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrencyCompact(summary.monthlyInHand)}</p>
+                  <p className="text-sm text-gray-500">{formatCurrencyDetailed(summary.monthlyInHand)}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <Calculator className="h-6 w-6 text-green-600" />
@@ -111,7 +128,7 @@ function App() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Age</p>
-                  <p className="text-2xl font-bold text-gray-900">{age}</p>
+                  <p className="text-2xl font-bold text-gray-900">{summary.age}</p>
                   <p className="text-sm text-gray-500">years old</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -123,9 +140,9 @@ function App() {
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Annual Income</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatCurrencyCompact(monthlyIncome * 12)}</p>
-                  <p className="text-sm text-gray-500">{formatCurrencyDetailed(monthlyIncome * 12)}</p>
+                  <p className="text-sm font-medium text-gray-600">Annual CTC</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrencyCompact(summary.annualCtc)}</p>
+                  <p className="text-sm text-gray-500">{formatCurrencyDetailed(summary.annualCtc)}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                   <PiggyBank className="h-6 w-6 text-purple-600" />
@@ -137,15 +154,15 @@ function App() {
 
         {/* Tab Content */}
         <div className="space-y-8">
-          {activeTab === 'income' && (
+          <div className={activeTab === 'income' ? 'block' : 'hidden'} aria-hidden={activeTab !== 'income'}>
             <IncomeCalculator onIncomeCalculated={handleIncomeCalculated} />
-          )}
-          {activeTab === 'budget' && (
-            <BudgetPlanner monthlyIncome={monthlyIncome} age={age} />
-          )}
-          {activeTab === 'savings' && (
-            <SavingsCalculator monthlyIncome={monthlyIncome} />
-          )}
+          </div>
+          <div className={activeTab === 'budget' ? 'block' : 'hidden'} aria-hidden={activeTab !== 'budget'}>
+            <BudgetPlanner monthlyIncome={summary.monthlyInHand} age={summary.age} />
+          </div>
+          <div className={activeTab === 'savings' ? 'block' : 'hidden'} aria-hidden={activeTab !== 'savings'}>
+            <SavingsCalculator monthlyIncome={summary.monthlyInHand} />
+          </div>
         </div>
       </main>
 

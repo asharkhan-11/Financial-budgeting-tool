@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
-import { formatCurrency, formatCurrencyDetailed } from '../utils/taxCalculator';
-import { Target, PiggyBank, TrendingUp, Calendar } from 'lucide-react';
+import { formatCurrencyDetailed } from '../utils/taxCalculator';
+import { Target, PiggyBank, TrendingUp } from 'lucide-react';
 
 interface SavingsGoal {
   name: string;
@@ -13,6 +13,8 @@ interface SavingsGoal {
   monthlyContribution: number;
   expectedReturn: number;
 }
+
+const DEFAULT_EXPECTED_RETURN = 8;
 
 export function SavingsCalculator({ monthlyIncome }: { monthlyIncome: number }) {
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
@@ -27,10 +29,10 @@ export function SavingsCalculator({ monthlyIncome }: { monthlyIncome: number }) 
         currentAmount: newGoal.currentAmount || 0,
         targetDate: newGoal.targetDate,
         monthlyContribution: newGoal.monthlyContribution || 0,
-        expectedReturn: newGoal.expectedReturn || 8
+        expectedReturn: newGoal.expectedReturn || DEFAULT_EXPECTED_RETURN
       };
       
-      setGoals([...goals, goal]);
+      setGoals((prev) => [...prev, goal]);
       setNewGoal({});
       setShowAddGoal(false);
     }
@@ -42,7 +44,7 @@ export function SavingsCalculator({ monthlyIncome }: { monthlyIncome: number }) 
     
     if (goal.monthlyContribution <= 0) return Infinity;
     
-    // Using compound interest formula to find time
+    // Solves for `n` in future value of monthly SIP contributions.
     const months = Math.log(1 + (remainingAmount * monthlyRate) / goal.monthlyContribution) / Math.log(1 + monthlyRate);
     return Math.ceil(months);
   };
@@ -57,6 +59,7 @@ export function SavingsCalculator({ monthlyIncome }: { monthlyIncome: number }) 
     if (monthsRemaining <= 0) return remainingAmount;
     
     const monthlyRate = goal.expectedReturn / 12 / 100;
+    // Rearranged SIP future value formula to compute monthly contribution.
     const requiredContribution = (remainingAmount * monthlyRate) / 
                                 (Math.pow(1 + monthlyRate, monthsRemaining) - 1);
     

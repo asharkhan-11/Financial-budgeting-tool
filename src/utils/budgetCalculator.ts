@@ -1,3 +1,5 @@
+import { formatCurrencyDetailed } from './taxCalculator';
+
 export interface BudgetCategory {
   name: string;
   percentage: number;
@@ -177,7 +179,6 @@ export function analyzeBudget(currentAllocations: { [key: string]: number }, mon
   const recommendations: BudgetRecommendation[] = [];
   
   const totalAllocated = Object.values(currentAllocations).reduce((sum, amount) => sum + amount, 0);
-  const remaining = monthlyIncome - totalAllocated;
   
   // Check if total allocation is within reasonable range
   if (totalAllocated > monthlyIncome * 1.1) {
@@ -228,46 +229,4 @@ export function analyzeBudget(currentAllocations: { [key: string]: number }, mon
   });
   
   return recommendations;
-}
-
-// Custom Indian numbering system formatter
-function formatIndianNumber(num: number): string {
-  if (num === 0) return '0';
-  
-  // Round to 2 decimal places
-  const roundedNum = Math.round(num * 100) / 100;
-  const numStr = Math.abs(roundedNum).toString();
-  const [wholePart, decimalPart] = numStr.split('.');
-  
-  // Indian numbering system: last 3 digits, then groups of 2
-  let formatted = '';
-  const len = wholePart.length;
-  
-  if (len <= 3) {
-    formatted = wholePart;
-  } else {
-    // Handle the last 3 digits
-    formatted = wholePart.slice(-3);
-    
-    // Handle the remaining digits in groups of 2
-    for (let i = len - 3; i > 0; i -= 2) {
-      const start = Math.max(0, i - 2);
-      const group = wholePart.slice(start, i);
-      formatted = group + ',' + formatted;
-    }
-  }
-  
-  // Add decimal part if exists (up to 2 decimal places)
-  if (decimalPart) {
-    formatted += '.' + decimalPart.padEnd(2, '0').slice(0, 2);
-  }
-  
-  return formatted;
-}
-
-function formatCurrencyDetailed(amount: number): string {
-  if (amount === 0) return '₹0';
-  
-  const formatted = formatIndianNumber(amount);
-  return `₹${formatted}`;
 }
