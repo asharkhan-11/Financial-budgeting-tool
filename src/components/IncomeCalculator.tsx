@@ -191,8 +191,16 @@ export function IncomeCalculator({ onIncomeCalculated }: IncomeCalculatorProps) 
                         </div>
                       ))}
                       <div className="flex justify-between border-t pt-2">
-                        <span className="text-gray-900 font-medium">Tax Before Cess:</span>
+                        <span className="text-gray-900 font-medium">Tax Before Rebate & Cess:</span>
                         <span className="font-bold text-red-600">{formatCurrencyDetailed(taxCalculation.taxBeforeCess)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Rebate u/s 87A:</span>
+                        <span className="font-medium text-green-600">-{formatCurrencyDetailed(taxCalculation.rebate87A)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Tax After Rebate:</span>
+                        <span className="font-medium">{formatCurrencyDetailed(taxCalculation.taxAfterRebateBeforeCess)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Health & Education Cess (4%):</span>
@@ -271,28 +279,6 @@ export function IncomeCalculator({ onIncomeCalculated }: IncomeCalculatorProps) 
                         <span className="text-red-600">-{formatCurrencyDetailed(taxCalculation.annualPfDeduction + taxCalculation.annualProfessionalTax)}</span>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Employer-side Components */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-900 mb-4 text-center">Employer-side Components</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-sm text-blue-700 mb-1">Employer PF</div>
-                    <div className="font-semibold text-blue-900">{formatCurrencyDetailed(salaryBreakdown.employerPf)}</div>
-                    <div className="text-xs text-blue-600">(12% of Basic)</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-blue-700 mb-1">EPS</div>
-                    <div className="font-semibold text-blue-900">{formatCurrencyDetailed(salaryBreakdown.employerEps)}</div>
-                    <div className="text-xs text-blue-600">(8.33% of Basic)</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-blue-700 mb-1">Gratuity</div>
-                    <div className="font-semibold text-blue-900">{formatCurrencyDetailed(salaryBreakdown.gratuity)}</div>
-                    <div className="text-xs text-blue-600">(4.81% of Basic)</div>
                   </div>
                 </div>
               </div>

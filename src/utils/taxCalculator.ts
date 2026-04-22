@@ -9,6 +9,8 @@ export interface TaxCalculation {
   totalIncome: number;
   taxableIncome: number;
   taxBeforeCess: number;
+  rebate87A: number;
+  taxAfterRebateBeforeCess: number;
   cess: number;
   totalTax: number;
   taxAmount?: number;
@@ -35,6 +37,8 @@ const STANDARD_DEDUCTION = 75000;
 const PROFESSIONAL_TAX = 2500;
 const MINIMUM_PF_MONTHLY = 1800;
 const CESS_RATE = 0.04;
+const REBATE_87A_THRESHOLD = 1200000;
+const REBATE_87A_MAX = 60000;
 
 // Indian Tax Slabs for FY 2025-26 (New Tax Regime, Budget 2025)
 export const TAX_SLABS: TaxSlab[] = [
@@ -74,8 +78,13 @@ export function calculateTax(annualIncome: number, options: TaxCalculationOption
     }
   }
 
-  const cess = taxBeforeCess * CESS_RATE;
-  const totalTax = taxBeforeCess + cess;
+  const rebate87A =
+    taxableIncome <= REBATE_87A_THRESHOLD
+      ? Math.min(taxBeforeCess, REBATE_87A_MAX)
+      : 0;
+  const taxAfterRebateBeforeCess = Math.max(0, taxBeforeCess - rebate87A);
+  const cess = taxAfterRebateBeforeCess * CESS_RATE;
+  const totalTax = taxAfterRebateBeforeCess + cess;
   const basicSalary = annualIncome * 0.5;
   const annualPfDeduction =
     pfMode === 'minimum'
@@ -92,6 +101,8 @@ export function calculateTax(annualIncome: number, options: TaxCalculationOption
     totalIncome: annualIncome,
     taxableIncome,
     taxBeforeCess,
+    rebate87A,
+    taxAfterRebateBeforeCess,
     cess,
     totalTax,
     taxAmount: totalTax,

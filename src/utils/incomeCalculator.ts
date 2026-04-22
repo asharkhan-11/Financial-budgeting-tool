@@ -4,12 +4,6 @@ export interface SalaryBreakdown {
   da: number;
   specialAllowance: number;
   otherAllowances: number;
-  employeePf: number;
-  employerPf: number;
-  employerEps: number;
-  employerPfContribution: number;
-  gratuity: number;
-  totalCtc: number;
 }
 
 export function formatIndianCurrencyInput(value: string): string {
@@ -53,26 +47,11 @@ export function calculateSalaryBreakdown(annualCtc: number): SalaryBreakdown {
   const specialAllowance = annualCtc * 0.15;
   const otherAllowances = annualCtc * 0.05;
 
-  const employeePf = Math.min(basicSalary * 0.12, 180000);
-  const employerPf = Math.min(basicSalary * 0.12, 180000);
-  const employerEps = Math.min(basicSalary * 0.0833, 125000);
-  const employerPfContribution = employerPf - employerEps;
-  const gratuity = basicSalary * 0.0481;
-
-  const totalCtc =
-    basicSalary + hra + da + specialAllowance + otherAllowances + employerPf + gratuity;
-
   return {
     basicSalary,
     hra,
     da,
     specialAllowance,
-    otherAllowances,
-    employeePf,
-    employerPf,
-    employerEps,
-    employerPfContribution,
-    gratuity,
-    totalCtc
+    otherAllowances
   };
 }
